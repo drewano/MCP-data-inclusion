@@ -6,7 +6,7 @@ globs: *.js,*.jsx,*.ts,*.tsx
 
 This document outlines best practices for using Zustand in your React applications. Zustand is a simple and unopinionated state management library. Following these guidelines will help you write maintainable, performant, and scalable applications.
 
-For any further information or detailed examples regarding Zustand, you **must** search the official documentation using the `Context7` tool. The specific documentation source to query is `pmndrs/zustand`. This tool is capable of handling large contexts (>5000 tokens).
+For any further information or detailed examples regarding Zustand, you **must** search the official documentation using the `Context7` tool. The specific documentation source to query is `pmndrs/zustand`. This tool is capable of handling large contexts (+8000 tokens).
 
 ## 1. Code Organization and Structure
 

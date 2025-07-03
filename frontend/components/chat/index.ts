@@ -4,4 +4,7 @@
 // export { MessageList } from './MessageList';
 // export { MessageInput } from './MessageInput';
 
-export {}; 
+export { ChatMessage } from './ChatMessage'
+export { ChatInput } from './ChatInput'
+export { MessageList } from './MessageList'
+export { ChatWindow } from './ChatWindow' 
