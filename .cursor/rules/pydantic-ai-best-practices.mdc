@@ -1,0 +1,70 @@
+---
+description: "Best practices and core concepts for building applications with the Pydantic-AI framework. Covers Agents, Tools, Structured Output, Dependencies, MCP, and FastA2A."
+alwaysApply: false
+---
+# Pydantic-AI Best Practices
+
+For any further information or detailed examples regarding Pydantic-AI, you **must** search the official documentation using the `Context7` tool. The specific documentation source to query is `context7/ai_pydantic_dev`. This tool is capable of handling large contexts (>5000 tokens).
+
+This guide outlines the core concepts and recommended patterns for building robust, type-safe AI applications with Pydantic-AI.
+
+## The `Agent`: The Core of the Application
+
+The `Agent` is the primary interface for interacting with LLMs. Think of it as a reusable, self-contained component similar to a FastAPI `APIRouter`. Agents should be instantiated once as module globals.
+
+### Key Components of an Agent
+
+An `Agent` is a container for several key components. When building or modifying an agent, consider these aspects:
+
+1.  **Instructions (Preferred over System Prompts)**
+    *   **Purpose:** Provide context and instructions to the LLM for the *current* task.
+    *   **Best Practice:** Use the `instructions` parameter or the `@agent.instructions` decorator. Unlike `system_prompt`, instructions are not carried over when a `message_history` is passed, preventing prompt pollution in multi-agent or multi-turn scenarios. Use `system_prompt` only if you explicitly need to retain prompts across different agent runs.
+
+2.  **Structured Output (`output_type`)**
+    *   **Purpose:** Define the data structure the LLM's final response must conform to. This is a core feature of Pydantic-AI.
+    *   **Best Practice:** Use Pydantic models (`BaseModel`), `TypedDict`, or other standard Python types as the `output_type`. This enables automatic validation and parsing of the LLM's output. For multiple possible outputs, use a `Union`.
+
+3.  **Function Tools (`@agent.tool`)**
+    *   **Purpose:** Give the LLM access to external functions to retrieve information or perform actions (similar to RAG, but more general).
+    *   **Best Practice:**
+        *   Use `@agent.tool` for functions that need access to the `RunContext` (e.g., for dependencies).
+        *   Use `@agent.tool_plain` for simpler functions without context.
+        *   Write clear, descriptive docstrings for tool functions and their parameters. Pydantic-AI uses them to generate the schema for the LLM.
+
+4.  **Dependencies (`deps_type` & `RunContext`)**
+    *   **Purpose:** A type-safe dependency injection system to provide services (like database connections, API clients, etc.) to tools and prompts.
+    *   **Best Practice:** Define dependencies in a `dataclass` or `BaseModel` and pass the type to the agent's `deps_type`. Access them within tools and prompt functions via `ctx: RunContext[YourDeps]`.
+
+## Running Agents and Managing Conversations
+
+*   Use `agent.run()` (async) or `agent.run_sync()` (sync) for single-turn responses.
+*   Use `agent.run_stream()` for streaming responses to a client.
+*   For multi-turn conversations, manage state by passing the chat history:
+    1.  Get the messages from the previous run: `history = result1.new_messages()`
+    2.  Pass them to the next run: `result2 = agent.run_sync("...", message_history=history)`
+
+## Error Handling and Self-Correction
+
+*   To ask the LLM to retry a tool call with different parameters (e.g., after a validation failure), raise `ModelRetry('Your feedback to the model')` from within a tool.
+*   The default retry count is 1. This can be configured on the `Agent` or per-tool with the `retries` parameter.
+*   Handle `UnexpectedModelBehavior` for unrecoverable model errors.
+
+## Advanced Patterns
+
+### Multi-Agent Applications
+*   **Agent Delegation:** An agent can call another agent within one of its tools. This is useful for breaking down complex tasks. Remember to pass the parent's `ctx.usage` to the sub-agent's run call to track token usage correctly.
+*   **Programmatic Hand-off:** For workflows with a human-in-the-loop or complex state logic, application code can call different agents sequentially, passing state and message history between them.
+
+### `pydantic-graph`
+*   **Use Case:** For highly complex workflows that require an explicit, visualizable, and resumable finite state machine.
+*   **Best Practice:** **Avoid using it unless necessary.** Most applications can be built effectively with single agents or simple multi-agent patterns. `pydantic-graph` is a "nail gun" – powerful, but with more setup and complexity than the standard "hammer".
+
+## Ecosystem & Integrations
+
+### MCP (Model Context Protocol)
+*   **Purpose:** A standard protocol for agents to communicate with external tools and services (e.g., a secure Python code interpreter, a log search tool).
+*   **Usage:** Register an `MCPServer` instance (like `MCPServerStdio` or `MCPServerSSE`) with the agent's `mcp_servers` parameter.
+
+### FastA2A
+*   **Purpose:** Expose a Pydantic-AI agent as a standardized, interoperable web service following the Agent-to-Agent (A2A) communication protocol.
+*   **Usage:** Use the `agent.to_a2a()` method to convert an agent into a FastAPI-like application.

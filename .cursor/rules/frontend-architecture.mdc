@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+---
+
+# Frontend Architecture Overview
+
+The frontend is a [Next.js](https://nextjs.org/) application built with TypeScript and React, located in the `frontend/` directory. It uses the App Router paradigm.
+
+## Key Technologies
+
+- **Framework**: [Next.js](https://nextjs.org/) (with App Router)
+- **Language**: TypeScript
+- **UI Components**: Built with [shadcn/ui](https://ui.shadcn.com/). The base components are in `frontend/components/ui`.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/). Global styles are in `frontend/app/globals.css`.
+- **State Management**: The project uses [Zustand](https://github.com/pmndrs/zustand) for state management, as seen in `frontend/package.json`.
+- **Markdown Rendering**: It uses `react-markdown` to display markdown content, likely for rendering messages from the AI agent.
+- **Linting**: ESLint is configured in `frontend/eslint.config.mjs`.
+
+## Directory Structure
+
+- `frontend/app/`: Contains the application's pages and layouts.
+  - `[page.tsx](mdc:frontend/app/page.tsx)`: The main page of the application.
+  - `[layout.tsx](mdc:frontend/app/layout.tsx)`: The root layout.
+- `frontend/components/`: Reusable React components.
+  - `ui/`: Base UI components from shadcn/ui like `[Button](mdc:frontend/components/ui/button.tsx)` and `[Card](mdc:frontend/components/ui/card.tsx)`.
+- `frontend/public/`: Static assets like images and SVGs.
+- `[package.json](mdc:frontend/package.json)`: Lists all frontend dependencies and scripts.
+- `[next.config.ts](mdc:frontend/next.config.ts)`: Next.js configuration.
+- `[tsconfig.json](mdc:frontend/tsconfig.json)`: TypeScript configuration.
+
+## Communication with Backend
+
+The frontend is expected to communicate with the `agent_server` backend service, which runs on port 8001 by default. The communication will likely be over HTTP (REST or similar).
+# Frontend Architecture Overview
+
+The frontend is a [Next.js](https://nextjs.org/) application built with TypeScript and React, located in the `frontend/` directory. It uses the App Router paradigm.
+
+## Key Technologies
+
+- **Framework**: [Next.js](https://nextjs.org/) (with App Router)
+- **Language**: TypeScript
+- **UI Components**: Built with [shadcn/ui](https://ui.shadcn.com/). The base components are in `frontend/components/ui`.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/). Global styles are in `frontend/app/globals.css`.
+- **State Management**: The project uses [Zustand](https://github.com/pmndrs/zustand) for state management, as seen in `frontend/package.json`.
+- **Markdown Rendering**: It uses `react-markdown` to display markdown content, likely for rendering messages from the AI agent.
+- **Linting**: ESLint is configured in `frontend/eslint.config.mjs`.
+
+## Directory Structure
+
+- `frontend/app/`: Contains the application's pages and layouts.
+  - `[page.tsx](mdc:frontend/app/page.tsx)`: The main page of the application.
+  - `[layout.tsx](mdc:frontend/app/layout.tsx)`: The root layout.
+- `frontend/components/`: Reusable React components.
+  - `ui/`: Base UI components from shadcn/ui like `[Button](mdc:frontend/components/ui/button.tsx)` and `[Card](mdc:frontend/components/ui/card.tsx)`.
+- `frontend/public/`: Static assets like images and SVGs.
+- `[package.json](mdc:frontend/package.json)`: Lists all frontend dependencies and scripts.
+- `[next.config.ts](mdc:frontend/next.config.ts)`: Next.js configuration.
+- `[tsconfig.json](mdc:frontend/tsconfig.json)`: TypeScript configuration.
+
+## Communication with Backend
+
+The frontend is expected to communicate with the `agent_server` backend service, which runs on port 8001 by default. The communication will likely be over HTTP (REST or similar).
