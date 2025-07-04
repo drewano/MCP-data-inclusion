@@ -1,0 +1,47 @@
+---
+alwaysApply: true
+---
+# Backend Architecture Overview
+
+The backend is a multi-service architecture orchestrated by [docker-compose.yml](mdc:docker-compose.yml). It consists of two primary Python services and a Redis instance:
+
+1. **MCP Server (`mcp_server`)**: A low-level server that exposes the external Data Inclusion API as MCP (Model Context Protocol) tools.
+2. **Agent Server (`agent_server`)**: A high-level AI agent that consumes the MCP tools from the `mcp_server` and provides an intelligent, conversational interface.
+3. **Redis**: Used for task persistence and message brokering by the Agent Server.
+
+## 1. MCP Server (`mcp_server`)
+
+This service acts as a bridge between the Data Inclusion REST API and the MCP world.
+
+- **Purpose**: To convert the [data.inclusion.beta.gouv.fr OpenAPI specification](https://api.data.inclusion.beta.gouv.fr/api/openapi.json) into a set of MCP tools that an AI can use.
+- **Framework**: Built with `FastMCP`.
+- **Main Logic**: The core setup and execution logic is in [backend/src/mcp_server/server.py](mdc:backend/src/mcp_server/server.py). This file handles:
+  - Loading the OpenAPI spec.
+  - Creating an authenticated HTTP client for the API.
+  - Renaming and enriching the generated tools for better usability by the AI.
+  - Adding custom middleware for error handling and timing from [backend/src/mcp_server/middleware.py](mdc:backend/src/mcp_server/middleware.py).
+- **Configuration**: Managed by [backend/src/mcp_server/config.py](mdc:backend/src/mcp_server/config.py), loading variables from [.env.example](mdc:.env.example).
+- **Entrypoint (in Docker)**: `python -m src.mcp_server.server`
+
+## 2. Agent Server (`agent_server`)
+
+This service provides the main user-facing intelligence, using the tools provided by the `mcp_server`.
+
+- **Purpose**: To expose a skilled AI agent that can answer questions about social inclusion in France by leveraging the MCP tools.
+- **Frameworks**: Built with `fasta2a` (for the agent-to-agent protocol) and `pydantic-ai` (for the agent logic).
+- **Main Entrypoint**: [backend/main.py](mdc:backend/main.py) starts the `uvicorn` server for the application defined in [backend/src/agent/server.py](mdc:backend/src/agent/server.py).
+- **Agent Definition**: The AI agent is created and configured in [backend/src/agent/agent.py](mdc:backend/src/agent/agent.py). It is configured with a system prompt and connected to the `mcp_server`.
+- **Connection to MCP Server**: The `lifespan` function in `server.py` establishes a connection to the `mcp_server` URL (e.g., `http://mcp_server:8000/mcp`) with a robust retry mechanism.
+- **Persistence & Brokering**: The server uses Redis for stateful, asynchronous tasks. The `Storage` and `Broker` implementations are in [backend/src/agent/persistence.py](mdc:backend/src/agent/persistence.py).
+- **Configuration**: Managed by [backend/src/agent/config.py](mdc:backend/src/agent/config.py).
+
+## Orchestration and Communication
+
+The services are designed to work together within a Docker network as defined in [docker-compose.yml](mdc:docker-compose.yml).
+
+- The `agent_server` has a `depends_on` condition for `mcp_server` and `redis`, ensuring they are healthy before it starts.
+- The `agent_server` connects to the `mcp_server` using its service name (`mcp_server`) over the internal Docker network. The URL is configured via the `MCP_SERVER_URL` environment variable.
+
+## Global Configuration
+
+All services are configured via environment variables defined in a `.env` file, which should be created from the template [`.env.example`](mdc:.env.example).

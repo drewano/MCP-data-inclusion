@@ -15,7 +15,7 @@ dependencies = [
     "pydantic-ai-slim[mcp,google,openai,cli,logfire]",
     "pydantic-settings",
     "fasta2a",
-    "redis[hiredis]"
+    "gradio"
 ]
 
 [project.urls]

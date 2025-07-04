@@ -1,0 +1,374 @@
+---
+globs: *.py
+alwaysApply: false
+---
+# FastMCP Best Practices
+
+This guide outlines best practices for building robust and maintainable MCP servers using the FastMCP framework, with examples tailored to this project's architecture.
+
+For any further information or detailed examples regarding FastMCP, you **must** search the official documentation using the `Context7` tool. The specific documentation source to query is `jlowin/fastmcp`. This tool is capable of handling large contexts (>5000 tokens).
+
+## 1. Tool Creation
+
+There are two primary ways to create tools in FastMCP: programmatically from Python functions or automatically from an OpenAPI specification.
+
+### a) Programmatic Creation (Python Functions)
+
+The most direct way to create a tool is by decorating a Python function with `@mcp.tool`. FastMCP automatically infers the tool's name, description, and argument schema from the function signature.
+
+- **DO** use clear function names, detailed docstrings, and Python type hints.
+
+```python
+from fastmcp import FastMCP
+
+mcp = FastMCP(name="CalculatorServer")
+
+@mcp.tool
+def add(a: int, b: int) -> int:
+    """Adds two integer numbers together."""
+    return a + b
+```
+
+### b) From OpenAPI Specification
+
+For exposing existing REST APIs, `FastMCP.from_openapi` is incredibly powerful. It automatically generates tools from an OpenAPI spec file or URL. This is the primary method used in this project's `mcp_server`.
+
+- **DO** leverage `FastMCP.from_openapi` to rapidly create a toolset for an existing API.
+- **DO** preprocess the OpenAPI specification in memory before passing it to FastMCP for global modifications, such as limiting page sizes across all list endpoints.
+
+```python
+# From backend/src/mcp/server.py
+# ...
+openapi_spec = http_client.get(settings.OPENAPI_URL).json()
+openapi_spec = limit_page_size_in_spec(openapi_spec, logger, max_size=25)
+
+mcp_server = FastMCP.from_openapi(
+    openapi_spec,
+    http_client=api_client,
+    # ... other configurations
+)
+```
+
+## 2. Tool Customization & Transformation
+
+It's often necessary to adapt the generated tools to be more user-friendly for an LLM or to fit specific requirements.
+
+### a) Renaming Tools
+
+Tool names should be clear and concise. When using `from_openapi`, you can provide a dictionary to rename the generated tools, as seen in `server.py`.
+
+```python
+# From backend/src/mcp/server.py
+
+custom_mcp_tool_names = {
+    "list_structures_endpoint_api_v0_structures_get": "list_all_structures",
+    "retrieve_structure_endpoint_api_v0_structures__source___id__get": "get_structure_details",
+    # ... etc
+}
+
+mcp_server = FastMCP.from_openapi(
+    # ...
+    names=custom_mcp_tool_names,
+    # ...
+)
+```
+
+For tools created from functions, you can use `Tool.from_tool` to create a new, aliased version.
+
+### b) Transforming Arguments with `ArgTransform`
+
+For fine-grained control over a tool's arguments, `Tool.from_tool` combined with `ArgTransform` is the ideal approach. It allows you to change descriptions, add default values, hide arguments, and more, without altering the original function.
+
+- **DO** use `ArgTransform` to improve argument descriptions to guide the LLM.
+
+```python
+# General Example
+from fastmcp.tools import Tool
+from fastmcp.tools.tool_transform import ArgTransform
+
+new_tool = Tool.from_tool(
+    find_user, # The original tool
+    transform_args={
+        "user_id": ArgTransform(
+            description=(
+                "The unique identifier for the user, "
+                "usually in the format 'usr-xxxxxxxx'."
+            )
+        )
+    }
+)
+```
+
+## 3. Server Configuration
+
+### a) Secure Entrypoint
+
+Always place your server startup logic within an `if __name__ == "__main__":` block.
+
+```python
+if __name__ == "__main__":
+    mcp.run(transport="http", port=8000)
+```
+
+### b) Authentication
+
+For any non-public server, **DO** configure an authentication provider. `BearerAuthProvider` is a secure and standard choice.
+
+```python
+# From backend/src/mcp/server.py
+from fastmcp.server.auth import BearerAuthProvider
+from fastmcp.server.auth.providers.bearer import RSAKeyPair
+
+key_pair = RSAKeyPair.generate()
+auth_provider = BearerAuthProvider(
+    public_key=key_pair.public_key,
+    audience="datainclusion-mcp-client"
+)
+
+mcp_server = FastMCP(
+    # ...
+    auth=auth_provider,
+    # ...
+)
+```
+
+## 4. Custom Middleware
+
+Middleware is a powerful pattern for implementing cross-cutting concerns like logging, error handling, and performance monitoring.
+
+- **DO** create custom middleware for centralized logic. This project provides excellent examples in `backend/src/mcp/middleware.py`:
+    - `TimingMiddleware`: Logs the execution time of every request.
+    - `ErrorHandlingMiddleware`: Catches Python exceptions and transforms them into standardized `McpError` responses, which is crucial for predictable client-side behavior.
+
+```python
+# From backend/src/mcp/middleware.py
+
+class ErrorHandlingMiddleware(Middleware):
+    async def on_request(self, context: MiddlewareContext, call_next):
+        try:
+            return await call_next(context)
+        except httpx.HTTPStatusError as e:
+            # ... custom logic to transform HTTP error ...
+            error_data = ErrorData(code=-32602, message=detailed_message)
+            raise McpError(error_data)
+        except Exception as e:
+            # ... custom logic to handle generic errors ...
+            error_data = ErrorData(code=-32000, message=detailed_message)
+            raise McpError(error_data)
+
+# Attaching middleware to the server
+# From backend/src/mcp/server.py
+mcp_server = FastMCP(
+    # ...
+    middleware=[
+        ErrorHandlingMiddleware(logger=logger),
+        TimingMiddleware(logger=logger),
+    ]
+    # ...
+)
+```
+
+## 5. Client-Side Error Handling
+
+A robust client application must anticipate and handle errors correctly.
+
+- **DO** wrap tool calls in `try...except` blocks.
+- **DO** specifically catch `fastmcp.exceptions.ClientError` for errors returned by the tool itself (like validation errors) and `fastmcp.exceptions.ConnectionError` for network issues.
+
+```python
+# General Example
+from fastmcp.exceptions import ClientError, ConnectionError
+
+async def safe_call_tool():
+    async with client:
+        try:
+            result = await client.call_tool("divide", {"a": 10, "b": 0})
+        except ClientError as e:
+            print(f"Tool call failed with server-side error: {e}")
+        except ConnectionError as e:
+            print(f"Connection to MCP server failed: {e}")
+```
+# FastMCP Best Practices
+
+This guide outlines best practices for building robust and maintainable MCP servers using the FastMCP framework, with examples tailored to this project's architecture.
+
+## 1. Tool Creation
+
+There are two primary ways to create tools in FastMCP: programmatically from Python functions or automatically from an OpenAPI specification.
+
+### a) Programmatic Creation (Python Functions)
+
+The most direct way to create a tool is by decorating a Python function with `@mcp.tool`. FastMCP automatically infers the tool's name, description, and argument schema from the function signature.
+
+- **DO** use clear function names, detailed docstrings, and Python type hints.
+
+```python
+from fastmcp import FastMCP
+
+mcp = FastMCP(name="CalculatorServer")
+
+@mcp.tool
+def add(a: int, b: int) -> int:
+    """Adds two integer numbers together."""
+    return a + b
+```
+
+### b) From OpenAPI Specification
+
+For exposing existing REST APIs, `FastMCP.from_openapi` is incredibly powerful. It automatically generates tools from an OpenAPI spec file or URL. This is the primary method used in this project's `mcp_server`.
+
+- **DO** leverage `FastMCP.from_openapi` to rapidly create a toolset for an existing API.
+- **DO** preprocess the OpenAPI specification in memory before passing it to FastMCP for global modifications, such as limiting page sizes across all list endpoints.
+
+```python
+# From backend/src/mcp/server.py
+# ...
+openapi_spec = http_client.get(settings.OPENAPI_URL).json()
+openapi_spec = limit_page_size_in_spec(openapi_spec, logger, max_size=25)
+
+mcp_server = FastMCP.from_openapi(
+    openapi_spec,
+    http_client=api_client,
+    # ... other configurations
+)
+```
+
+## 2. Tool Customization & Transformation
+
+It's often necessary to adapt the generated tools to be more user-friendly for an LLM or to fit specific requirements.
+
+### a) Renaming Tools
+
+Tool names should be clear and concise. When using `from_openapi`, you can provide a dictionary to rename the generated tools, as seen in `server.py`.
+
+```python
+# From backend/src/mcp/server.py
+
+custom_mcp_tool_names = {
+    "list_structures_endpoint_api_v0_structures_get": "list_all_structures",
+    "retrieve_structure_endpoint_api_v0_structures__source___id__get": "get_structure_details",
+    # ... etc
+}
+
+mcp_server = FastMCP.from_openapi(
+    # ...
+    names=custom_mcp_tool_names,
+    # ...
+)
+```
+
+For tools created from functions, you can use `Tool.from_tool` to create a new, aliased version.
+
+### b) Transforming Arguments with `ArgTransform`
+
+For fine-grained control over a tool's arguments, `Tool.from_tool` combined with `ArgTransform` is the ideal approach. It allows you to change descriptions, add default values, hide arguments, and more, without altering the original function.
+
+- **DO** use `ArgTransform` to improve argument descriptions to guide the LLM.
+
+```python
+# General Example
+from fastmcp.tools import Tool
+from fastmcp.tools.tool_transform import ArgTransform
+
+new_tool = Tool.from_tool(
+    find_user, # The original tool
+    transform_args={
+        "user_id": ArgTransform(
+            description=(
+                "The unique identifier for the user, "
+                "usually in the format 'usr-xxxxxxxx'."
+            )
+        )
+    }
+)
+```
+
+## 3. Server Configuration
+
+### a) Secure Entrypoint
+
+Always place your server startup logic within an `if __name__ == "__main__":` block.
+
+```python
+if __name__ == "__main__":
+    mcp.run(transport="http", port=8000)
+```
+
+### b) Authentication
+
+For any non-public server, **DO** configure an authentication provider. `BearerAuthProvider` is a secure and standard choice.
+
+```python
+# From backend/src/mcp/server.py
+from fastmcp.server.auth import BearerAuthProvider
+from fastmcp.server.auth.providers.bearer import RSAKeyPair
+
+key_pair = RSAKeyPair.generate()
+auth_provider = BearerAuthProvider(
+    public_key=key_pair.public_key,
+    audience="datainclusion-mcp-client"
+)
+
+mcp_server = FastMCP(
+    # ...
+    auth=auth_provider,
+    # ...
+)
+```
+
+## 4. Custom Middleware
+
+Middleware is a powerful pattern for implementing cross-cutting concerns like logging, error handling, and performance monitoring.
+
+- **DO** create custom middleware for centralized logic. This project provides excellent examples in `backend/src/mcp/middleware.py`:
+    - `TimingMiddleware`: Logs the execution time of every request.
+    - `ErrorHandlingMiddleware`: Catches Python exceptions and transforms them into standardized `McpError` responses, which is crucial for predictable client-side behavior.
+
+```python
+# From backend/src/mcp/middleware.py
+
+class ErrorHandlingMiddleware(Middleware):
+    async def on_request(self, context: MiddlewareContext, call_next):
+        try:
+            return await call_next(context)
+        except httpx.HTTPStatusError as e:
+            # ... custom logic to transform HTTP error ...
+            error_data = ErrorData(code=-32602, message=detailed_message)
+            raise McpError(error_data)
+        except Exception as e:
+            # ... custom logic to handle generic errors ...
+            error_data = ErrorData(code=-32000, message=detailed_message)
+            raise McpError(error_data)
+
+# Attaching middleware to the server
+# From backend/src/mcp/server.py
+mcp_server = FastMCP(
+    # ...
+    middleware=[
+        ErrorHandlingMiddleware(logger=logger),
+        TimingMiddleware(logger=logger),
+    ]
+    # ...
+)
+```
+
+## 5. Client-Side Error Handling
+
+A robust client application must anticipate and handle errors correctly.
+
+- **DO** wrap tool calls in `try...except` blocks.
+- **DO** specifically catch `fastmcp.exceptions.ClientError` for errors returned by the tool itself (like validation errors) and `fastmcp.exceptions.ConnectionError` for network issues.
+
+```python
+# General Example
+from fastmcp.exceptions import ClientError, ConnectionError
+
+async def safe_call_tool():
+    async with client:
+        try:
+            result = await client.call_tool("divide", {"a": 10, "b": 0})
+        except ClientError as e:
+            print(f"Tool call failed with server-side error: {e}")
+        except ConnectionError as e:
+            print(f"Connection to MCP server failed: {e}")
+```

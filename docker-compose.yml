@@ -2,7 +2,7 @@ services:
   # Service 1 : Le serveur MCP pour l'API data.inclusion
   mcp_server:
     build: .
-    command: python -m src.mcp.server
+    command: python -m src.mcp_server.server
     env_file:
       - .env
     ports:
@@ -36,22 +36,32 @@ services:
     depends_on:
       mcp_server:
         condition: service_healthy
-      redis:
-        condition: service_healthy
 
-  # Service 3 : Serveur Redis pour le broker et stockage persistant
-  redis:
-    image: redis:alpine
+  # Service 3 : Interface Gradio pour l'interaction utilisateur
+  gradio_interface:
+    build: .
+    command: python gradio_app.py --debug --host 0.0.0.0 --port 7860 --agent-url http://agent_server:8001
+    env_file:
+      - .env
     ports:
-      - "6379:6379" # Mappe le port 6379 de l'hôte au conteneur
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - "7860:7860" # Mappe le port 7860 de l'hôte au conteneur
+    volumes:
+      - ./src:/app/src
+      - ./gradio_app.py:/app/gradio_app.py
+    restart: on-failure
+    environment:
+      - PYTHONPATH=/app  # S'assurer que le module src est trouvé
     networks:
       - app-network
+    depends_on:
+      agent_server:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 networks:
   app-network:
