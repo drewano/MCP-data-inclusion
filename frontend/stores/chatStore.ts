@@ -5,10 +5,19 @@ import {
   type Task, 
   type StreamingEvent,
   type AgentCard,
+  type Artifact,
+  type Part,
+  type TextPart,
+  type TaskState,
+  type TaskStatus,
   generateTaskId,
   createUserMessage,
   isTaskStatusUpdateEvent,
   isTaskArtifactUpdateEvent,
+  isTextPart,
+  isTerminalTaskState,
+  extractTextFromMessage,
+  extractFilesFromMessage,
 } from '@/lib/api'
 
 /**
@@ -22,11 +31,7 @@ export interface ChatMessage {
   // Propriétés A2A
   taskId?: string
   a2aMessage?: Message
-  artifacts?: Array<{
-    name?: string
-    content: string
-    type?: string
-  }>
+  artifacts?: Artifact[]
 }
 
 /**
@@ -238,34 +243,53 @@ export const useChatStore = create<ChatStore>()((set) => ({
       
       // Traitement spécifique selon le type d'événement
       if (isTaskStatusUpdateEvent(event)) {
-        if (event.status.state === 'completed' || event.status.state === 'failed') {
+        // Gérer les mises à jour de statut de tâche
+        if (isTerminalTaskState(event.status.state)) {
           newState.isStreaming = false
           newState.isLoading = false
         }
+        
+        // Si l'état est "failed", définir un message d'erreur
+        if (event.status.state === 'failed') {
+          const errorMessage = event.status.message ? extractTextFromMessage(event.status.message) : 'La tâche a échoué'
+          newState.error = errorMessage
+        }
+        
       } else if (isTaskArtifactUpdateEvent(event)) {
-        // Mettre à jour le contenu du dernier message avec le nouvel artifact
+        // Gérer les mises à jour d'artefacts
         const artifact = event.artifact
-        if (artifact.parts && artifact.parts.length > 0 && state.messages.length > 0) {
+        
+        if (artifact.parts && artifact.parts.length > 0) {
           const messages = [...state.messages]
-          const lastMessageIndex = messages.length - 1
-          const lastMessage = messages[lastMessageIndex]
           
-          if (lastMessage.role === 'agent') {
-            // Extraire le contenu text des parts de l'artifact
-            const textContent = artifact.parts
-              .filter(part => part.type === 'text')
-              .map(part => ('text' in part ? part.text : ''))
-              .join('')
+          // Extraire le contenu texte des parts de l'artifact en utilisant les fonctions utilitaires
+          const textParts = artifact.parts.filter(isTextPart)
+          const textContent = textParts.map(part => part.text).join('')
+          
+          if (textContent) {
+            // Vérifier s'il y a déjà un message agent en dernière position
+            const lastMessageIndex = messages.length - 1
+            const lastMessage = messages[lastMessageIndex]
             
-            messages[lastMessageIndex] = {
-              ...lastMessage,
-              content: textContent || lastMessage.content,
-              artifacts: [{
-                name: artifact.name || undefined,
+            if (lastMessage && lastMessage.role === 'agent') {
+              // Mettre à jour le dernier message agent
+              messages[lastMessageIndex] = {
+                ...lastMessage,
                 content: textContent,
-                type: 'text'
-              }]
+                artifacts: [artifact]
+              }
+            } else {
+              // Créer un nouveau message agent
+              const newAgentMessage: ChatMessage = {
+                id: uuidv4(),
+                role: 'agent',
+                content: textContent,
+                timestamp: new Date(),
+                artifacts: [artifact]
+              }
+              messages.push(newAgentMessage)
             }
+            
             newState.messages = messages
           }
         }
@@ -324,5 +348,27 @@ export const chatSelectors = {
   // Obtenir le nombre de messages
   getMessageCount: () => {
     return useChatStore.getState().messages.length
+  },
+
+  // Obtenir les messages A2A (avec leur structure A2A)
+  getA2AMessages: () => {
+    return useChatStore.getState().messages.filter(msg => msg.a2aMessage)
+  },
+
+  // Obtenir la tâche courante
+  getCurrentTask: () => {
+    return useChatStore.getState().currentTask
+  },
+
+  // Vérifier si une tâche est en cours
+  hasActiveTask: () => {
+    const task = useChatStore.getState().currentTask
+    return task && !isTerminalTaskState(task.status.state)
+  },
+
+  // Obtenir le dernier événement de streaming
+  getLastStreamingEvent: () => {
+    const events = useChatStore.getState().streamingEvents
+    return events[events.length - 1] || null
   },
 } 

@@ -3,21 +3,22 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useChatStore } from "@/stores/chatStore"
-import { Send } from "lucide-react"
+import { Send, Loader2 } from "lucide-react"
 import { FormEvent } from "react"
 
 interface ChatInputProps {
   onSubmit: (message: string) => void
+  disabled?: boolean
 }
 
-export function ChatInput({ onSubmit }: ChatInputProps) {
-  const { input, isLoading, setInput } = useChatStore()
+export function ChatInput({ onSubmit, disabled = false }: ChatInputProps) {
+  const { input, isLoading, isStreaming, setInput } = useChatStore()
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
     const trimmedInput = input.trim()
-    if (trimmedInput && !isLoading) {
+    if (trimmedInput && !isLoading && !disabled && !isStreaming) {
       onSubmit(trimmedInput)
       setInput('')
     }
@@ -27,14 +28,22 @@ export function ChatInput({ onSubmit }: ChatInputProps) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       const trimmedInput = input.trim()
-      if (trimmedInput && !isLoading) {
+      if (trimmedInput && !isLoading && !disabled && !isStreaming) {
         onSubmit(trimmedInput)
         setInput('')
       }
     }
   }
 
-  const isDisabled = isLoading || !input.trim()
+  const isInputDisabled = isLoading || disabled || isStreaming
+  const isButtonDisabled = isInputDisabled || !input.trim()
+
+  const getPlaceholder = () => {
+    if (disabled) return "Connexion en cours..."
+    if (isStreaming) return "Streaming en cours..."
+    if (isLoading) return "L'agent réfléchit..."
+    return "Tapez votre message..."
+  }
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 p-4 border-t">
@@ -42,20 +51,26 @@ export function ChatInput({ onSubmit }: ChatInputProps) {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={isLoading ? "L'agent réfléchit..." : "Tapez votre message..."}
-        disabled={isLoading}
+        placeholder={getPlaceholder()}
+        disabled={isInputDisabled}
         className="flex-1"
         autoComplete="off"
-        autoFocus
+        autoFocus={!isInputDisabled}
       />
       <Button
         type="submit"
-        disabled={isDisabled}
+        disabled={isButtonDisabled}
         size="icon"
         className="h-10 w-10 flex-shrink-0"
       >
-        <Send className="h-4 w-4" />
-        <span className="sr-only">Envoyer le message</span>
+        {isLoading || isStreaming ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4" />
+        )}
+        <span className="sr-only">
+          {isButtonDisabled ? "Envoi désactivé" : "Envoyer le message"}
+        </span>
       </Button>
     </form>
   )

@@ -5,11 +5,13 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   A2AClient,
   createDevelopmentA2AClient,
   createProductionA2AClient,
+  createA2AClient,
+  canCreateA2AClient,
   type AgentCard,
   type Task,
   type TaskSendParams,
@@ -20,8 +22,11 @@ import {
   RpcError,
   NetworkError,
   TimeoutError,
+  AuthenticationError,
+  TaskError,
   isTaskStatusUpdateEvent,
   isTaskArtifactUpdateEvent,
+  isTerminalTaskState,
   createUserMessage,
   generateTaskId,
 } from '@/lib/api';
@@ -54,9 +59,6 @@ export interface UseStreamingOptions {
   
   /** Callback appelé à la fin du stream */
   onEnd?: () => void;
-  
-  /** Signal d'annulation */
-  signal?: AbortSignal;
 }
 
 /**
@@ -76,17 +78,36 @@ export interface StreamState {
 /**
  * Hook principal pour obtenir une instance du client A2A
  */
-export function useA2AClient(options?: Partial<A2AClientOptions>): A2AClient {
-  const client = useMemo(() => {
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const baseUrl = options?.baseUrl || (isDevelopment ? 'http://localhost:8001' : '');
-    
-    if (isDevelopment) {
-      return createDevelopmentA2AClient(8001);
-    } else {
-      return createProductionA2AClient(baseUrl);
+export function useA2AClient(options?: A2AClientOptions): A2AClient | null {
+  const [client, setClient] = useState<A2AClient | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Détecter quand on est côté client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    // Ne créer le client que côté client
+    if (!isClient) return;
+
+    // Vérifier que l'environnement supporte A2A
+    if (!canCreateA2AClient()) {
+      console.warn('A2A client cannot be created in this environment (missing window or fetch)');
+      return;
     }
-  }, [options?.baseUrl]);
+
+    try {
+      const clientInstance = createA2AClient({
+        agentPort: 8001, // Port par défaut pour le développement
+        ...options,
+      });
+      setClient(clientInstance);
+      console.log('Client A2A initialisé avec succès');
+    } catch (error) {
+      console.error("Erreur lors de la création du client A2A:", error);
+    }
+  }, [isClient, options]);
 
   return client;
 }
@@ -109,6 +130,8 @@ export function useAgentCard(client?: A2AClient): RequestState<AgentCard> {
   });
 
   const fetchAgentCard = useCallback(async () => {
+    if (!a2aClient) return;
+    
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
@@ -147,7 +170,11 @@ export function useSendTask(client?: A2AClient) {
     error: null,
   });
 
-  const sendTask = useCallback(async (params: TaskSendParams) => {
+  const sendTask = useCallback(async (params: TaskSendParams): Promise<Task | null> => {
+    if (!a2aClient) {
+      throw new Error('A2A client is not yet initialized.');
+    }
+    
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
@@ -161,7 +188,7 @@ export function useSendTask(client?: A2AClient) {
     }
   }, [a2aClient]);
 
-  const sendUserMessage = useCallback(async (text: string, metadata?: Record<string, unknown>) => {
+  const sendUserMessage = useCallback(async (text: string, metadata?: Record<string, unknown>): Promise<Task | null> => {
     const taskId = generateTaskId();
     const message = createUserMessage(text, metadata);
     
@@ -205,6 +232,10 @@ export function useTaskStreaming(
   const { onEvent, onError, onEnd } = options;
 
   const startStreaming = useCallback(async (params: TaskSendParams) => {
+    if (!a2aClient) {
+      throw new Error('A2A client is not yet initialized.');
+    }
+    
     // Annuler le stream précédent s'il existe
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -222,7 +253,7 @@ export function useTaskStreaming(
     }));
 
     try {
-      const stream = a2aClient.sendTaskSubscribe(params, { signal });
+      const stream = a2aClient.sendTaskSubscribe(params);
 
       for await (const event of stream) {
         if (signal.aborted) break;
@@ -234,6 +265,11 @@ export function useTaskStreaming(
         }));
 
         onEvent?.(event);
+
+        // Arrêter le streaming si la tâche est terminée
+        if (isTaskStatusUpdateEvent(event) && isTerminalTaskState(event.status.state)) {
+          break;
+        }
       }
 
       setState(prev => ({ ...prev, isStreaming: false }));
@@ -310,7 +346,11 @@ export function useTask(taskId: string, client?: A2AClient) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const getTask = useCallback(async (params?: Omit<TaskQueryParams, 'id'>) => {
+  const getTask = useCallback(async (params?: Omit<TaskQueryParams, 'id'>): Promise<Task | null> => {
+    if (!a2aClient) {
+      throw new Error('A2A client is not yet initialized.');
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -327,7 +367,11 @@ export function useTask(taskId: string, client?: A2AClient) {
     }
   }, [a2aClient, taskId]);
 
-  const cancelTask = useCallback(async () => {
+  const cancelTask = useCallback(async (): Promise<Task | null> => {
+    if (!a2aClient) {
+      throw new Error('A2A client is not yet initialized.');
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -344,7 +388,10 @@ export function useTask(taskId: string, client?: A2AClient) {
     }
   }, [a2aClient, taskId]);
 
-  const resubscribe = useCallback((params?: Omit<TaskQueryParams, 'id'>) => {
+  const resubscribe = useCallback((params?: Omit<TaskQueryParams, 'id'>): AsyncIterable<StreamingEvent> => {
+    if (!a2aClient) {
+      throw new Error('A2A client is not yet initialized.');
+    }
     return a2aClient.resubscribeTask({ id: taskId, ...params });
   }, [a2aClient, taskId]);
 
@@ -382,6 +429,7 @@ export function useStreamingEventProcessor() {
         state: event.status.state,
         message: event.status.message,
         isFinal: event.final || false,
+        isTerminal: isTerminalTaskState(event.status.state),
       };
     } else if (isTaskArtifactUpdateEvent(event)) {
       return {
@@ -395,7 +443,7 @@ export function useStreamingEventProcessor() {
       return {
         type: 'unknown' as const,
         event,
-        taskId: 'id' in event ? (event as any).id : 'unknown',
+        taskId: 'id' in event ? (event as { id: string }).id : 'unknown',
       };
     }
   }, []);
@@ -411,12 +459,13 @@ export function useStreamingEventProcessor() {
  * Hook pour gérer les erreurs A2A de manière centralisée
  */
 export function useA2AErrorHandler() {
-  const handleError = useCallback((error: Error) => {
+  const handleError = useCallback((error: Error): string => {
     if (error instanceof RpcError) {
       console.error('RPC Error:', {
         code: error.code,
         message: error.message,
         data: error.data,
+        taskId: error.taskId,
       });
       
       // Traitement spécifique selon le code d'erreur
@@ -436,8 +485,14 @@ export function useA2AErrorHandler() {
       console.error('Network Error:', error.originalError);
       return 'Erreur de réseau. Vérifiez votre connexion.';
     } else if (error instanceof TimeoutError) {
-      console.error('Timeout Error:', error.timeoutMs);
-      return `Timeout après ${error.timeoutMs}ms. Réessayez.`;
+      console.error('Timeout Error:', error.timeout);
+      return `Timeout après ${error.timeout}ms. Réessayez.`;
+    } else if (error instanceof AuthenticationError) {
+      console.error('Authentication Error:', error.message);
+      return 'Erreur d\'authentification. Vérifiez vos identifiants.';
+    } else if (error instanceof TaskError) {
+      console.error('Task Error:', error.message, 'Task ID:', error.taskId, 'State:', error.taskState);
+      return `Erreur de tâche: ${error.message}`;
     } else {
       console.error('Unknown Error:', error);
       return `Erreur inattendue: ${error.message}`;

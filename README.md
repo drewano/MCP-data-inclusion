@@ -162,3 +162,145 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une *Pull Reque
 ## 📝 Licence
 
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+# MCP Data Inclusion Agent
+
+Un agent IA pour l'accompagnement social utilisant l'API Data Inclusion via le protocole MCP (Model Context Protocol).
+
+## Architecture
+
+Le projet utilise une architecture multi-services avec :
+- **Frontend** : Next.js avec TypeScript et React
+- **Backend** : Serveur d'agent utilisant Pydantic-AI et FastA2A
+- **MCP Server** : Serveur MCP exposant l'API Data Inclusion
+- **Redis** : Pour la persistance et la gestion des tâches
+
+## Démarrage rapide
+
+1. **Configuration**
+   ```bash
+   cp .env.example .env.local
+   # Éditer .env.local avec vos clés d'API
+   ```
+
+2. **Lancement avec Docker**
+   ```bash
+   docker-compose up --build
+   ```
+
+3. **Accès**
+   - Frontend : http://localhost:3000
+   - Agent API : http://localhost:8001
+   - MCP Server : http://localhost:8000
+
+## Dépannage
+
+### Erreur "fetch called on an object that does not implement interface Window"
+
+Cette erreur survient quand le client A2A tente de s'exécuter côté serveur (SSR). Solutions :
+
+1. **Vérifier que le composant est client-side** :
+   ```typescript
+   'use client' // En haut du fichier
+   ```
+
+2. **Attendre l'hydratation** :
+   ```typescript
+   const [isMounted, setIsMounted] = useState(false);
+   useEffect(() => setIsMounted(true), []);
+   if (!isMounted) return <div>Chargement...</div>;
+   ```
+
+3. **Vérifier la configuration** :
+   - S'assurer que les services backend sont démarrés
+   - Vérifier les ports (8001 pour l'agent, 8000 pour MCP)
+   - Contrôler les logs Docker : `docker-compose logs`
+
+### Erreur de connexion à l'agent
+
+1. **Vérifier les services** :
+   ```bash
+   docker-compose ps
+   ```
+
+2. **Tester la connectivité** :
+   ```bash
+   curl http://localhost:8001/.well-known/agent.json
+   ```
+
+3. **Vérifier les logs** :
+   ```bash
+   docker-compose logs agent_server
+   docker-compose logs mcp_server
+   ```
+
+### Variables d'environnement manquantes
+
+Créer un fichier `.env.local` avec au minimum :
+```env
+# Clés API requises
+DATA_INCLUSION_API_KEY=your_api_key_here
+GEMINI_API_KEY=your_gemini_key_here
+
+# Configuration optionnelle
+LOGFIRE_TOKEN=your_logfire_token
+MCP_SERVER_SECRET_KEY=your_secret_key
+```
+
+## Développement
+
+### Structure du projet
+
+```
+MCP-data-inclusion/
+├── frontend/           # Application Next.js
+│   ├── components/     # Composants React
+│   ├── hooks/         # Hooks personnalisés
+│   ├── lib/           # Bibliothèques (api.ts)
+│   └── stores/        # État global (Zustand)
+├── backend/           # Services Python
+│   ├── src/agent/     # Serveur d'agent
+│   └── src/mcp/       # Serveur MCP
+└── docker-compose.yml # Orchestration des services
+```
+
+### Développement frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Développement backend
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+pip install -e .
+```
+
+## API et Intégration
+
+Le frontend utilise le protocole A2A (Agent-to-Agent) pour communiquer avec le backend :
+
+- **Client A2A** : Gestion de la communication
+- **Streaming** : Réponses en temps réel
+- **Gestion d'état** : Zustand pour l'état global
+- **Types TypeScript** : Typage strict pour toute l'API
+
+Pour plus de détails sur l'API, voir `frontend/lib/api.ts`.
+
+## Contribution
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
+3. Commit les changements (`git commit -m 'Add AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvrir une Pull Request
+
+## Licence
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.

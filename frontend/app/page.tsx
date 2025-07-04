@@ -1,4 +1,16 @@
-import { ChatWindow } from "@/components/chat";
+'use client'
+
+import dynamic from "next/dynamic";
+
+// Import dynamique du ChatWindow pour éviter les erreurs SSR
+const ChatWindow = dynamic(() => import("@/components/chat").then(mod => ({ default: mod.ChatWindow })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-muted-foreground">Chargement du chat...</div>
+    </div>
+  ),
+});
 
 export default function Home() {
   return (

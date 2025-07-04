@@ -1,14 +1,16 @@
 services:
   # Service 1 : Le serveur MCP pour l'API data.inclusion
   mcp_server:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     command: python -m src.mcp.server
     env_file:
       - .env
     ports:
       - "8000:8000" # Mappe le port 8000 de l'hôte au conteneur
     volumes:
-      - ./src:/app/src # Synchronise le code pour le développement
+      - ./backend/src:/app/src # Synchronise le code pour le développement
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s  # Augmenté de 10s à 30s pour laisser plus de temps au serveur
@@ -20,14 +22,16 @@ services:
 
   # Service 2 : Le serveur Agent qui communique avec le frontend et le MCP
   agent_server:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     command: python main.py
     env_file:
       - .env
     ports:
       - "8001:8001" # Mappe le port 8001 de l'hôte au conteneur
     volumes:
-      - ./src:/app/src
+      - ./backend/src:/app/src
     restart: on-failure  # Redémarre automatiquement en cas d'échec
     environment:
       - MCP_CONNECTION_RETRY_DELAY=5  # Délai entre les tentatives de connexion MCP
@@ -52,6 +56,30 @@ services:
       start_period: 10s
     networks:
       - app-network
+
+  # Service 4 : Application frontend Next.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # Mappe le port 3000 de l'hôte au conteneur
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://agent_server:8001 # URL interne pour communiquer avec l'agent_server
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+    depends_on:
+      agent_server:
+        condition: service_started
+    restart: unless-stopped
 
 networks:
   app-network:
