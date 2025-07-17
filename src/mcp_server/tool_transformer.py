@@ -28,21 +28,9 @@ from .utils import deep_clean_schema, find_route_by_id
 
 def customize_for_gemini(route, component, logger: logging.Logger):
     """
-    Simplifie les schémas d'un composant pour une meilleure compatibilité avec les LLMs stricts.
-
-    Cette fonction nettoie les schémas JSON des outils MCP en supprimant les titres et autres
-    éléments qui peuvent causer des problèmes avec certains modèles de langage comme Gemini.
-    Elle utilise la fonction `deep_clean_schema` pour s'assurer que les schémas sont
-    compatibles avec les spécifications strictes des LLMs.
-
-    Args:
-        route: La route HTTP OpenAPI associée à l'outil.
-        component: Le composant FastMCP à personnaliser.
-        logger: Instance du logger pour enregistrer les opérations de nettoyage.
-
-    Note:
-        Cette fonction modifie directement les schémas du composant (modification in-place).
-        Elle nettoie à la fois les schémas d'entrée et de sortie s'ils existent.
+    Simplifies and cleans the input and output JSON schemas of a FastMCP component for improved compatibility with strict LLMs like Gemini.
+    
+    Removes problematic elements such as titles from the component's schemas using `deep_clean_schema`. Modifies the component's schemas in-place. Logs the cleaning actions performed.
     """
     tool_name = getattr(component, "name", "Unknown")
     cleaned_schemas = []
@@ -86,14 +74,9 @@ class ToolTransformer:
         logger: logging.Logger,
     ):
         """
-        Initialise le transformateur d'outils avec les paramètres nécessaires.
-
-        Args:
-            mcp_server: Instance du serveur MCP où les outils seront enregistrés
-            http_routes: Liste des routes HTTP OpenAPI pour l'enrichissement des descriptions
-            custom_tool_names: Mapping des operation_ids vers les noms d'outils personnalisés
-            op_id_map: Mapping des operation_ids vers les noms d'outils générés par FastMCP
-            logger: Instance du logger pour enregistrer le processus de transformation
+        Initialize the ToolTransformer with the MCP server, OpenAPI routes, tool name mappings, and logger.
+        
+        This sets up the transformer to customize and enrich MCP tools generated from an OpenAPI specification.
         """
         self.mcp_server = mcp_server
         self.http_routes = http_routes
@@ -107,19 +90,9 @@ class ToolTransformer:
         component: FastMCPComponent,
     ):
         """
-        Personnalise le composant pour Gemini et découvre le nom de l'outil généré.
-
-        Cette méthode combine la personnalisation des schémas pour les LLMs et la découverte
-        du mapping entre les operation_ids OpenAPI et les noms d'outils générés par FastMCP.
-        Elle est utilisée comme callback durant la génération automatique des outils.
-
-        Args:
-            route: La route HTTP OpenAPI contenant l'operation_id.
-            component: Le composant FastMCP généré pour cette route.
-
-        Note:
-            Cette méthode modifie directement le dictionnaire op_id_map de l'instance
-            pour stocker le mapping découvert entre operation_ids et noms d'outils.
+        Customize the FastMCP component's schemas for Gemini compatibility and map the OpenAPI operation_id to the generated tool name.
+        
+        This method is intended as a callback during automatic tool generation. It cleans the component's input and output schemas for strict LLM compatibility and records the mapping between the OpenAPI operation_id and the generated tool name in the instance's op_id_map.
         """
         # Appel de la fonction de personnalisation existante
         customize_for_gemini(route, component, self.logger)
@@ -135,26 +108,12 @@ class ToolTransformer:
 
     async def transform_tools(self) -> None:
         """
-        Transforme et enregistre les outils MCP avec des noms personnalisés et des enrichissements.
-
-        Cette méthode est le cœur du processus de transformation des outils MCP. Elle :
-
-        1. Récupère les outils originaux générés par FastMCP
-        2. Les enrichit avec des descriptions personnalisées et des métadonnées
-        3. Ajoute des tags pour l'organisation des outils
-        4. Enrichit les descriptions des paramètres à partir des spécifications OpenAPI
-        5. Remplace les outils originaux par les versions transformées
-
-        Le processus garantit qu'aucun outil en double n'existe et que les noms sont
-        plus lisibles pour les LLMs tout en conservant toute la fonctionnalité originale.
-
+        Transforms and enriches MCP tools with custom names, improved descriptions, and metadata.
+        
+        This asynchronous method processes all tools defined in the custom tool names mapping. For each tool, it finds the corresponding OpenAPI route and generated tool, enriches the tool with enhanced descriptions (using route description, summary, or a default), adds parameter descriptions from OpenAPI, and assigns organizational tags. The transformed tool replaces the original on the MCP server, ensuring no duplicates remain. The method logs progress, warnings, errors, and a summary of the transformation, including unmapped operation IDs for debugging.
+        
         Raises:
-            Exception: Si la transformation d'un outil échoue, l'erreur est loggée mais
-                      le processus continue pour les autres outils.
-
-        Note:
-            Cette méthode est asynchrone car elle interagit avec l'API async du serveur MCP.
-            Elle supprime les outils originaux après transformation pour éviter les doublons.
+            Exceptions encountered during individual tool transformations are logged, but do not interrupt processing of other tools.
         """
         self.logger.info(
             "Applying advanced tool transformations using Tool.from_tool()..."

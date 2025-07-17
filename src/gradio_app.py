@@ -39,10 +39,12 @@ logger = logging.getLogger("datainclusion.agent")
 # Création de l'application FastAPI principale
 def create_app() -> FastAPI:
     """
-    Crée l'application FastAPI combinée avec Gradio.
-
+    Create and configure a FastAPI application integrated with a Gradio user interface.
+    
+    The returned app serves the AI agent's REST API under `/api`, the Gradio chat interface under `/chat`, static files if present, and provides root redirection and a global health check endpoint. CORS is enabled with origins from settings, and API documentation is available at `/docs` and `/redoc`.
+    
     Returns:
-        Instance FastAPI configurée
+        FastAPI: The fully configured FastAPI application instance with Gradio integration.
     """
     # Application principale
     app = FastAPI(
@@ -75,12 +77,19 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     async def root():
-        """Redirection vers l'interface Gradio."""
+        """
+        Redirects the root URL to the Gradio chat interface at `/chat`.
+        """
         return RedirectResponse(url="/chat")
 
     @app.get("/health")
     async def health_check():
-        """Health check global de l'application."""
+        """
+        Performs a global health check of the application, returning the status of core services.
+        
+        Returns:
+            JSONResponse: A JSON object indicating overall health, service statuses, and a timestamp. Returns a 503 status with error details if the health check fails.
+        """
         try:
             return JSONResponse(
                 status_code=200,
@@ -129,7 +138,9 @@ app = create_app()
 
 # Fonction utilitaire pour le développement
 def run_development():
-    """Lance l'application en mode développement avec rechargement automatique."""
+    """
+    Start the application in development mode with Uvicorn, enabling auto-reload on source code changes.
+    """
     uvicorn.run(
         "src.gradio_app:app",
         host="0.0.0.0",

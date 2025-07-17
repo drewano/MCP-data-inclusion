@@ -32,25 +32,18 @@ class MCPBuilder:
 
     def __init__(self, logger: logging.Logger):
         """
-        Initialise le builder avec le logger.
-
-        Args:
-            logger: Instance du logger pour enregistrer les messages
+        Initialize the MCPBuilder with a logger instance.
+        
+        The logger is used for recording informational, warning, and error messages throughout the server build process.
         """
         self.logger = logger
         self.api_client = None
 
     def _configure_auth(self) -> BearerAuthProvider | None:
         """
-        Configure l'authentification Bearer pour le serveur MCP.
-
-        Cette méthode :
-        1. Lit la clé secrète depuis la configuration
-        2. Configure BearerAuthProvider si une clé est fournie
-        3. Génère un token de test pour le développement
-
-        Returns:
-            BearerAuthProvider | None: Le provider d'authentification ou None
+        Configures Bearer token authentication for the MCP server.
+        
+        If a secret key is provided in the configuration, sets up a BearerAuthProvider using either an existing PEM-encoded RSA private key or a newly generated RSA key pair. Logs a test token for development if a new key pair is generated. Returns the authentication provider if successful, or None if no key is set or configuration fails.
         """
         self.logger.info("Configuring server authentication...")
 
@@ -129,16 +122,13 @@ class MCPBuilder:
 
     async def build(self) -> FastMCP:
         """
-        Orchestre la construction complète du serveur MCP.
-
-        Cette méthode utilise les composants spécialisés pour construire
-        le serveur MCP de manière modulaire et organisée.
-
+        Builds and configures the MCP server by loading the OpenAPI specification, setting up authentication, transforming HTTP routes into MCP tools, and adding a health check endpoint.
+        
         Returns:
-            FastMCP: Instance complètement configurée du serveur MCP
-
+            FastMCP: The fully configured MCP server instance.
+        
         Raises:
-            Exception: Si une étape de construction échoue
+            Exception: If any step in the server construction process fails.
         """
         try:
             # 1. Chargement et parsing de la spécification OpenAPI
@@ -205,7 +195,9 @@ class MCPBuilder:
             # Ajout de l'endpoint de santé
             @mcp_server.custom_route("/health", methods=["GET"])
             async def health_check(request: Request) -> PlainTextResponse:
-                """A simple health check endpoint."""
+                """
+                Handles health check requests and returns a plain text "OK" response with HTTP 200 status.
+                """
                 return PlainTextResponse("OK", status_code=200)
 
             self.logger.info(
@@ -238,7 +230,7 @@ class MCPBuilder:
 
     async def cleanup(self) -> None:
         """
-        Nettoie les ressources utilisées par le builder.
+        Release resources used by the builder, closing the HTTP client if it was created.
         """
         if self.api_client:
             self.logger.info("Closing HTTP client...")
@@ -248,10 +240,9 @@ class MCPBuilder:
 
 async def main():
     """
-    Fonction principale qui configure et lance le serveur MCP.
-
-    Cette fonction utilise MCPBuilder pour construire et configurer le serveur MCP
-    de manière modulaire et organisée.
+    Asynchronously configures, builds, and runs the MCP server, handling startup, shutdown, and resource cleanup.
+    
+    Initializes logging, constructs the MCP server using MCPBuilder, and starts it with the configured host, port, and API path. Handles graceful shutdown on keyboard interrupt and logs unexpected errors. Ensures proper cleanup of resources regardless of execution outcome.
     """
 
     # === 1. CONFIGURATION DU LOGGING ===

@@ -14,13 +14,13 @@ from ..core.config import settings
 
 def create_inclusion_agent(mcp_server: MCPServerStreamableHTTP) -> Agent:
     """
-    Crée et configure l'agent IA spécialisé dans l'inclusion sociale en France.
-
-    Args:
-        mcp_server: Instance du serveur MCP pour accéder aux données d'inclusion
-
+    Instantiate and configure an AI agent specialized in social inclusion services and resources in France.
+    
+    Parameters:
+        mcp_server (MCPServerStreamableHTTP): The MCP server instance providing access to inclusion-related data.
+    
     Returns:
-        Agent configuré pour répondre aux questions sur l'inclusion sociale
+        Agent: An agent configured to answer questions about social inclusion, aid structures, and available resources in France.
     """
 
     # Utiliser OpenAI au lieu de Gemini pour éviter les problèmes avec les schémas $ref

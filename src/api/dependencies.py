@@ -5,16 +5,13 @@ from typing import Annotated
 
 def get_agent_from_app_state(request: Request) -> Agent:
     """
-    Récupère l'agent depuis l'état de l'application FastAPI.
-
-    Args:
-        request: Requête FastAPI contenant l'état de l'application
-
-    Returns:
-        Agent: L'instance de l'agent
-
+    Retrieve the Agent instance from the FastAPI application's state.
+    
     Raises:
-        HTTPException: Si l'agent n'est pas initialisé
+        HTTPException: If the Agent is not initialized in the application state.
+    
+    Returns:
+        Agent: The Agent instance stored in the application's state.
     """
     if not hasattr(request.app.state, "agent"):
         raise HTTPException(status_code=503, detail="Agent not initialized")

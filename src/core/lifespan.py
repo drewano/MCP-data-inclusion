@@ -23,13 +23,9 @@ logger = logging.getLogger("datainclusion.agent")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Gestionnaire de cycle de vie pour l'application combinée.
-
-    Gère la connexion au serveur MCP et l'initialisation de l'agent
-    avec logique de retry et backoff exponentiel.
-
-    Args:
-        app: Instance FastAPI
+    Asynchronous lifecycle manager for a FastAPI application integrating an AI agent.
+    
+    Handles startup and shutdown procedures, including connecting to an MCP server with retry and exponential backoff logic, initializing the AI agent, ensuring required directories exist, and storing the agent in the application state. Raises a RuntimeError if all connection attempts to the MCP server fail.
     """
     logger.info("🚀 Démarrage de l'application Gradio + FastAPI...")
 

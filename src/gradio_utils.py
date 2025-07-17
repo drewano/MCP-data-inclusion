@@ -34,15 +34,15 @@ def create_tool_call_message(
     call_id: Optional[str] = None,
 ) -> gr.ChatMessage:
     """
-    Crée un message Gradio pour un appel d'outil MCP.
-
-    Args:
-        tool_name: Nom de l'outil appelé
-        arguments: Arguments passés à l'outil (dict, str, ou None)
-        call_id: ID unique de l'appel (optionnel)
-
+    Create a Gradio chat message representing a tool call, including formatted arguments and metadata.
+    
+    Parameters:
+        tool_name (str): The name of the tool being called.
+        arguments (dict, str, or None): Arguments passed to the tool, which may be a dictionary, a JSON string, or None.
+        call_id (str, optional): Unique identifier for the tool call. If not provided, a timestamp-based ID is generated.
+    
     Returns:
-        gr.ChatMessage: Message Gradio formaté pour l'appel d'outil
+        gr.ChatMessage: A Gradio chat message with the tool call details and associated metadata.
     """
 
     # Normaliser les arguments en dict pour le formatage
@@ -92,17 +92,19 @@ def create_tool_result_message(
     is_error: bool = False,
 ) -> gr.ChatMessage:
     """
-    Crée un message Gradio pour le résultat d'un outil MCP.
-
-    Args:
-        tool_name: Nom de l'outil
-        result: Résultat de l'outil
-        call_id: ID unique de l'appel (optionnel)
-        duration: Durée d'exécution en secondes (optionnel)
-        is_error: Si True, affiche comme une erreur
-
+    Create a Gradio chat message displaying the result or error of an MCP tool execution.
+    
+    The message includes formatted result content, a status indicator (success or error), and metadata such as title, unique ID, status, and optional execution duration.
+    
+    Parameters:
+        tool_name (str): Name of the tool whose result is being displayed.
+        result (Any): The result or output returned by the tool.
+        call_id (Optional[str]): Unique identifier for the tool call, used for message tracking.
+        duration (Optional[float]): Execution time in seconds, included if provided.
+        is_error (bool): If True, formats the message as an error.
+    
     Returns:
-        gr.ChatMessage: Message Gradio formaté pour le résultat
+        gr.ChatMessage: A Gradio chat message representing the tool's result or error, with appropriate formatting and metadata.
     """
 
     # Formatage du résultat pour l'affichage
@@ -142,14 +144,14 @@ def create_tool_result_message(
 
 def create_error_message(error_msg: str, title: str = "⚠️ Erreur") -> gr.ChatMessage:
     """
-    Crée un message Gradio pour une erreur.
-
-    Args:
-        error_msg: Message d'erreur
-        title: Titre du message d'erreur
-
+    Create a Gradio chat message representing an error.
+    
+    Parameters:
+        error_msg (str): The error message to display.
+        title (str, optional): The title for the error message. Defaults to "⚠️ Erreur".
+    
     Returns:
-        gr.ChatMessage: Message Gradio formaté pour l'erreur
+        gr.ChatMessage: A Gradio chat message with error content and metadata.
     """
 
     metadata: MetadataDict = {
@@ -165,13 +167,12 @@ def create_error_message(error_msg: str, title: str = "⚠️ Erreur") -> gr.Cha
 
 def format_arguments_for_display(arguments: Dict[str, Any]) -> str:
     """
-    Formate les arguments d'un outil pour l'affichage dans Gradio.
-
-    Args:
-        arguments: Arguments de l'outil
-
+    Format tool arguments into a readable string for display in Gradio chat messages.
+    
+    Arguments are presented as a list, with long strings and JSON structures truncated for brevity. Returns "*Aucun argument*" if the input is empty.
+    
     Returns:
-        str: Arguments formatés pour l'affichage
+        str: Formatted arguments as a display string.
     """
 
     if not arguments:
@@ -200,13 +201,10 @@ def format_arguments_for_display(arguments: Dict[str, Any]) -> str:
 
 def format_result_for_display(result: Any) -> str:
     """
-    Formate le résultat d'un outil pour l'affichage dans Gradio.
-
-    Args:
-        result: Résultat de l'outil
-
+    Format a tool result for display in Gradio chat messages.
+    
     Returns:
-        str: Résultat formaté pour l'affichage
+        A formatted string representation of the result, using markdown code blocks and truncating long outputs for readability.
     """
 
     if result is None:
@@ -232,11 +230,7 @@ def format_result_for_display(result: Any) -> str:
 
 def log_gradio_message(message: gr.ChatMessage, context: str = "GRADIO") -> None:
     """
-    Log un message Gradio pour le debugging.
-
-    Args:
-        message: Message Gradio à logger
-        context: Contexte du message (pour le logging)
+    Logs a Gradio chat message for debugging purposes, including its role, metadata, and a summary of its content.
     """
 
     logger.debug(f"[{context}] Message: {message.role} - {message.metadata}")

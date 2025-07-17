@@ -27,7 +27,12 @@ try:
     logger = setup_logging(name="datainclusion.agent")
 
     def setup_environment():
-        """Configure l'environnement pour l'exécution."""
+        """
+        Prepares the application environment by creating required directories and validating critical configuration settings.
+        
+        Returns:
+            The agent settings object after environment setup and validation.
+        """
         # Créer les répertoires nécessaires
         directories = ["logs", "feedback_data", "exports", "static"]
 
@@ -55,7 +60,11 @@ try:
         return settings.agent
 
     def run_app():
-        """Lance l'application selon l'environnement configuré."""
+        """
+        Start the integrated Agent DataInclusion application in either development or production mode.
+        
+        Determines the environment mode from the ENVIRONMENT variable, prepares the runtime environment, and launches the FastAPI and Gradio application with appropriate settings for development (with auto-reload) or production (single worker, no reload).
+        """
         agent_settings = setup_environment()
 
         # Déterminer le mode d'exécution

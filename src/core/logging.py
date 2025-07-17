@@ -12,14 +12,14 @@ import sys
 
 def setup_logging(name: str, level: str = "INFO") -> logging.Logger:
     """
-    Configure le système de logging pour l'application.
-
-    Args:
-        name: Nom du logger à créer
-        level: Niveau de log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
+    Set up and return a logger with the specified name and log level, configured for consistent console output.
+    
+    Parameters:
+        name (str): The name of the logger to create or retrieve.
+        level (str, optional): The log level as a string ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"). Defaults to "INFO".
+    
     Returns:
-        Logger configuré pour l'application
+        logging.Logger: A logger instance configured with the specified name and level, outputting formatted logs to standard output.
     """
 
     # Configuration des niveaux de log

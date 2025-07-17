@@ -26,29 +26,22 @@ class OpenAPILoader:
 
     def __init__(self, logger: logging.Logger):
         """
-        Initialise le loader avec le logger.
-
-        Args:
-            logger: Instance du logger pour enregistrer les messages
+        Initialize the OpenAPILoader with a logger for recording messages.
         """
         self.logger = logger
 
     async def load(self) -> Tuple[Dict, List[HTTPRoute]]:
         """
-        Charge et pré-traite la spécification OpenAPI.
-
-        Cette méthode :
-        1. Charge la spécification OpenAPI depuis l'URL configurée
-        2. Parse la spécification en routes HTTP
-        3. Applique les limites de pagination
-
+        Asynchronously loads and preprocesses the OpenAPI specification from a configured URL.
+        
+        Fetches the OpenAPI JSON specification, parses it into HTTP routes, and applies pagination limits to specific endpoints. Returns the modified specification and the list of parsed HTTP routes.
+        
         Returns:
-            Tuple[Dict, List[HTTPRoute]]: Un tuple contenant la spécification OpenAPI
-            et la liste des routes HTTP parsées.
-
+            Tuple[Dict, List[HTTPRoute]]: The modified OpenAPI specification and the list of parsed HTTP routes.
+        
         Raises:
-            httpx.RequestError: Si la récupération de la spécification échoue
-            json.JSONDecodeError: Si la réponse n'est pas un JSON valide
+            httpx.RequestError: If the OpenAPI specification cannot be fetched.
+            json.JSONDecodeError: If the response is not valid JSON.
         """
         self.logger.info(
             f"Loading OpenAPI specification from URL: '{settings.mcp.OPENAPI_URL}'..."
@@ -95,19 +88,16 @@ class OpenAPILoader:
 
     def _limit_page_size(self, spec: dict, max_size: int = 25) -> dict:
         """
-        Modifie la spécification OpenAPI pour limiter la taille des pages.
-
-        Cette méthode parcourt les points de terminaison pertinents et ajuste le paramètre
-        'size' pour qu'il ait une valeur maximale et par défaut de `max_size`. Cela permet
-        d'éviter que les LLMs demandent des résultats trop volumineux qui pourraient
-        dépasser les limites de contexte ou ralentir les réponses.
-
-        Args:
-            spec: Le dictionnaire de la spécification OpenAPI à modifier.
-            max_size: La taille maximale à définir pour les résultats paginés (défaut: 25).
-
+        Modify the OpenAPI specification to enforce a maximum page size for specific endpoints.
+        
+        For each targeted GET endpoint, sets the 'size' query parameter's maximum and default values to `max_size` to prevent excessively large paginated responses.
+        
+        Parameters:
+            spec (dict): The OpenAPI specification to modify.
+            max_size (int): The maximum allowed value for the 'size' parameter (default is 25).
+        
         Returns:
-            dict: Le dictionnaire de la spécification modifié avec les limites de page appliquées.
+            dict: The modified OpenAPI specification with page size limits applied.
         """
         paths_to_modify = [
             "/api/v0/structures",

@@ -39,13 +39,15 @@ logger = logging.getLogger("datainclusion.agent")
 
 def _format_gradio_history(history: List[Dict[str, str]]) -> List[ModelMessage]:
     """
-    Convertit l'historique Gradio au format pydantic-ai ModelMessage.
-
-    Args:
-        history: Historique des messages au format Gradio
-
+    Convert a Gradio chat history into a list of pydantic-ai ModelMessage objects.
+    
+    Each message in the Gradio history is mapped to the appropriate ModelMessage type based on its role: user messages become ModelRequest with UserPromptPart, assistant messages become ModelResponse with TextPart, and system messages become ModelRequest with SystemPromptPart. Messages with unrecognized roles or empty content are ignored.
+    
+    Parameters:
+        history (List[Dict[str, str]]): The Gradio chat history as a list of message dictionaries.
+    
     Returns:
-        Liste des messages au format pydantic-ai
+        List[ModelMessage]: The chat history converted to pydantic-ai ModelMessage objects.
     """
     formatted_history: List[ModelMessage] = []
 
@@ -75,15 +77,12 @@ async def _handle_agent_node(
     node, run_context, response_messages: List[gr.ChatMessage]
 ):
     """
-    Gère un nœud de l'agent en déléguant à la fonction appropriée selon le type de nœud.
-
-    Args:
-        node: Le nœud de l'agent à traiter
-        run_context: Le contexte d'exécution de l'agent
-        response_messages: Liste des messages de réponse à modifier
-
+    Processes an agent node and streams updated chat messages based on the node type.
+    
+    Depending on the node type, this function yields the current response messages, streams model responses, or streams tool call events. It supports user prompt, model request, tool call, and end nodes, yielding updated chat messages for each streaming event.
+    
     Yields:
-        List[gr.ChatMessage]: Messages mis à jour pour le streaming
+        List[gr.ChatMessage]: The updated list of chat messages for streaming to the interface.
     """
     if Agent.is_user_prompt_node(node):
         # Nœud de prompt utilisateur
@@ -110,15 +109,12 @@ async def _stream_model_response(
     node, run_context, response_messages: List[gr.ChatMessage]
 ):
     """
-    Gère le streaming de la réponse du modèle.
-
-    Args:
-        node: Le nœud de requête modèle
-        run_context: Le contexte d'exécution de l'agent
-        response_messages: Liste des messages de réponse à modifier
-
+    Streams the model's response tokens and updates the assistant message in real time.
+    
+    Appends an empty assistant message to the response list, then asynchronously streams model output. As new text tokens arrive, they are appended to the assistant message and the updated message list is yielded for UI updates. Tool call deltas are logged but not displayed. Yields the final message list when streaming completes.
+    
     Yields:
-        List[gr.ChatMessage]: Messages mis à jour pour le streaming
+        List[gr.ChatMessage]: The updated list of chat messages reflecting streamed model output.
     """
     logger.info("Streaming de la requête modèle...")
 
@@ -155,15 +151,12 @@ async def _stream_tool_calls(
     node, run_context, response_messages: List[gr.ChatMessage]
 ):
     """
-    Gère le streaming des appels d'outils MCP.
-
-    Args:
-        node: Le nœud d'appel d'outils
-        run_context: Le contexte d'exécution de l'agent
-        response_messages: Liste des messages de réponse à modifier
-
+    Stream MCP tool call events and update the chat response messages accordingly.
+    
+    Iterates asynchronously over tool call events from the agent node, appending formatted tool call and tool result messages to the response list and yielding updated messages for real-time chat streaming.
+    
     Yields:
-        List[gr.ChatMessage]: Messages mis à jour pour le streaming
+        List[gr.ChatMessage]: The updated list of chat messages after each tool call or result event.
     """
     logger.info("Traitement des appels d'outils...")
 
@@ -194,22 +187,21 @@ async def _stream_tool_calls(
 
 def create_complete_interface():
     """
-    Crée l'interface Gradio complète avec streaming et affichage des appels aux outils MCP.
+    Builds and returns a Gradio chat interface for an AI agent specialized in social inclusion, supporting streaming responses and real-time display of MCP tool calls.
+    
+    The interface features an asynchronous chat stream that processes user input, converts chat history to the agent's expected format, and streams both assistant responses and tool call events as they occur. It includes example prompts, custom avatars, and UI elements tailored for social inclusion queries.
+    
+    Returns:
+        gr.ChatInterface: Configured Gradio chat interface instance with streaming and tool call display.
     """
 
     async def chat_stream(
         message: str, history: List[Dict[str, str]], request: gr.Request
     ) -> AsyncGenerator[List[gr.ChatMessage], None]:
         """
-        Fonction de streaming pour l'interface de chat avec affichage des appels aux outils MCP.
-
-        Args:
-            message: Message de l'utilisateur
-            history: Historique des messages
-            request: Objet Request de Gradio (non utilisé pour l'accès à l'agent)
-
-        Yields:
-            Listes de ChatMessage formatées incluant les détails des appels aux outils MCP
+        Asynchronously streams chat responses and tool call events for the Gradio chat interface.
+        
+        Yields updated lists of chat messages, including partial assistant responses and details of MCP tool calls, as the AI agent processes the user message and chat history. If the agent is not initialized or the user message is invalid, yields an appropriate error message.
         """
         if not message or not message.strip():
             yield [

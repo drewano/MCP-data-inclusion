@@ -5,7 +5,11 @@ from fastmcp.utilities.openapi import HTTPRoute
 
 
 async def inspect_mcp_components(mcp_instance: FastMCP, logger: logging.Logger):
-    """Inspecte et affiche les composants MCP (outils, ressources, templates)."""
+    """
+    Asynchronously logs detailed information about MCP tools, resources, and resource templates from a FastMCP instance.
+    
+    Retrieves and categorizes tools as enabled or disabled, then logs counts and names for tools, resources, and resource templates. This function is intended for inspection and debugging purposes and does not return a value.
+    """
     logger.info("--- Inspecting MCP Components ---")
     tools = await mcp_instance.get_tools()
     resources = await mcp_instance.get_resources()
@@ -51,15 +55,13 @@ async def inspect_mcp_components(mcp_instance: FastMCP, logger: logging.Logger):
 def create_api_client(
     base_url: str, logger: logging.Logger, api_key: str | None = None
 ) -> httpx.AsyncClient:
-    """Crée un client HTTP avec authentification pour l'API Data Inclusion.
-
-    Args:
-        base_url: L'URL de base de l'API
-        logger: Instance du logger pour les messages
-        api_key: Clé d'API optionnelle pour l'authentification
-
+    """
+    Create and return an asynchronous HTTP client configured for API access.
+    
+    If an API key is provided, the client includes an Authorization header for authenticated requests. Default headers and a 30-second timeout are set. Logs warnings if no API key is supplied.
+    
     Returns:
-        httpx.AsyncClient: Client HTTP configuré avec les headers d'authentification
+        httpx.AsyncClient: Configured asynchronous HTTP client for API communication.
     """
     headers = {}
 
@@ -90,17 +92,10 @@ def create_api_client(
 
 
 def deep_clean_schema(schema: dict) -> None:
-    """Nettoie récursivement un schéma JSON en supprimant tous les champs "title".
-
-    Cette fonction parcourt récursivement un dictionnaire représentant un schéma JSON
-    et supprime toutes les clés "title" trouvées, y compris dans les dictionnaires
-    imbriqués et les listes de dictionnaires.
-
-    Args:
-        schema: Dictionnaire représentant un schéma JSON à nettoyer
-
-    Note:
-        Cette fonction modifie le dictionnaire en place et ne retourne rien.
+    """
+    Recursively removes all "title" keys from a JSON schema dictionary and its nested structures.
+    
+    This function traverses the input dictionary in place, deleting any key named "title" found at any level, including within nested dictionaries and lists of dictionaries.
     """
     if not isinstance(schema, dict):
         return
@@ -130,17 +125,9 @@ async def find_route_by_id(
     operation_id: str, routes: list[HTTPRoute]
 ) -> HTTPRoute | None:
     """
-    Recherche un objet HTTPRoute par son operation_id.
-
-    Cette fonction parcourt une liste d'objets HTTPRoute et retourne le premier
-    objet dont l'attribut operation_id correspond à l'operation_id fourni.
-
-    Args:
-        operation_id: L'identifiant d'opération à rechercher
-        routes: La liste des objets HTTPRoute à parcourir
-
-    Returns:
-        HTTPRoute | None: L'objet HTTPRoute correspondant ou None si aucune correspondance n'est trouvée
+    Searches for an HTTPRoute object in a list by its operation_id.
+    
+    Returns the first HTTPRoute whose operation_id matches the given string, or None if no match is found.
     """
     for route in routes:
         if hasattr(route, "operation_id") and route.operation_id == operation_id:
